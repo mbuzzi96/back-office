@@ -26,7 +26,7 @@ There's no public sign-up screen on purpose — an admin creates each account.
 1. **Authentication → Users → Add user** — create one per staff member
    (email + password, or send a magic-link invite).
 2. **Table Editor → employees** — insert one row per staff member: `name`,
-   `role`, and set `user_id` to that person's UUID from the Authentication
+   `role`, and set `user_id` .to that person's UUID from the Authentication
    page. This is what links their login to "who they are" in the app (their
    timesheets, task assignments, etc.) — without it, Log Time and task
    notifications won't know who they are.
