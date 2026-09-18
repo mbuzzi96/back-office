@@ -18,6 +18,7 @@ export default function Invoices({ invoices, clients, entries, tasks, firmInfo, 
   const [firmModal, setFirmModal] = useState(false);
   const [filterClient, setFilterClient] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [saveError, setSaveError] = useState("");
 
   const clientMap = {};
   clients.forEach((c) => (clientMap[c.id] = c));
@@ -32,19 +33,29 @@ export default function Invoices({ invoices, clients, entries, tasks, firmInfo, 
   }
 
   async function save(form) {
-    const original = modal !== "new" ? modal : null;
-    await syncLinkedEntries(original?.linked_entry_ids || [], form.linked_entry_ids || []);
-    if (form.id) await db.invoices.update(form.id, form);
-    else await db.invoices.insert(form);
-    setModal(null);
-    reload();
+    setSaveError("");
+    try {
+      const original = modal !== "new" ? modal : null;
+      await syncLinkedEntries(original?.linked_entry_ids || [], form.linked_entry_ids || []);
+      if (form.id) await db.invoices.update(form.id, form);
+      else await db.invoices.insert(form);
+      setModal(null);
+      reload();
+    } catch (err) {
+      setSaveError(err.message || "Something went wrong saving this invoice.");
+    }
   }
   async function remove(id) {
-    const inv = invoices.find((i) => i.id === id);
-    await syncLinkedEntries(inv?.linked_entry_ids || [], []);
-    await db.invoices.remove(id);
-    setModal(null);
-    reload();
+    setSaveError("");
+    try {
+      const inv = invoices.find((i) => i.id === id);
+      await syncLinkedEntries(inv?.linked_entry_ids || [], []);
+      await db.invoices.remove(id);
+      setModal(null);
+      reload();
+    } catch (err) {
+      setSaveError(err.message || "Something went wrong deleting this invoice.");
+    }
   }
   async function setStatus(inv, status) {
     const patch = status === "Paid" ? { status, paid_date: inv.paid_date || todayISO() } : { status };
@@ -150,14 +161,14 @@ export default function Invoices({ invoices, clients, entries, tasks, firmInfo, 
       )}
 
       {modal && (
-        <InvoiceModal invoice={modal === "new" ? null : modal} clients={clients} entries={entries} tasks={tasks} nextNumber={nextInvoiceNumber(invoices)} onSave={save} onDelete={remove} onClose={() => setModal(null)} />
+        <InvoiceModal invoice={modal === "new" ? null : modal} clients={clients} entries={entries} tasks={tasks} nextNumber={nextInvoiceNumber(invoices)} onSave={save} onDelete={remove} onClose={() => setModal(null)} error={saveError} />
       )}
       {firmModal && <FirmInfoModal firmInfo={firmInfo} onClose={() => setFirmModal(false)} onSaved={reload} />}
     </div>
   );
 }
 
-function InvoiceModal({ invoice, clients, entries, tasks, nextNumber, onSave, onDelete, onClose }) {
+function InvoiceModal({ invoice, clients, entries, tasks, nextNumber, onSave, onDelete, onClose, error }) {
   const [form, setForm] = useState(
     invoice || { client_id: clients[0]?.id || "", number: nextNumber, date: todayISO(), due_date: "", line_items: [], linked_entry_ids: [], notes: "Payment due upon receipt. Thank you for your business.", status: "Draft", paid_date: "" }
   );
@@ -253,6 +264,8 @@ function InvoiceModal({ invoice, clients, entries, tasks, nextNumber, onSave, on
         </div>
 
         <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 700, color: "var(--ledger-dark)" }}>Total: {money(total)}</div>
+
+        {error && <div style={{ color: "var(--rust)", fontSize: 12.5, background: "#fcefea", border: "1px solid var(--rust)", borderRadius: 5, padding: "8px 10px" }}>{error}</div>}
 
         <Field label="Notes / payment instructions">
           <textarea className="input" style={{ minHeight: 60 }} value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
